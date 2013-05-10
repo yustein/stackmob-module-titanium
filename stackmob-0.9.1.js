@@ -23,11 +23,7 @@
    *
    * It is the only variable introduced globally.
    */
-  window = new Object();
-  window.location = new Object();
-  window.location.hostname = 'cnn.com';
-  window.location.protocol = 'http';
-  localStorage = {};
+
   window.StackMob = root.StackMob = {
 
     //Default API Version.  Set to 0 for your Development API.  Production APIs are 1, 2, 3+
@@ -91,51 +87,27 @@
      */
     Storage : {
 
-      // //Since the underlying client side storage implementation may not be name-spaced, we'll prefix our saved keys with `STORAGE_PREFIX`.
-      // STORAGE_PREFIX : 'stackmob.',
-// 
-      // //Use this to save things to local storage as a key/value pair.
-      // persist : function(key, value) {
-        // //If there's an HTML5 implementation of Local Storage available, then use it.  Otherwise, there's no fallback at this point in time.
-        // if(localStorage)
-          // localStorage.setItem(this.STORAGE_PREFIX + key, value);
-      // },
-      // //Read a value from local storage given the `key`.
-      // retrieve : function(key) {
-        // if(localStorage)
-          // return localStorage.getItem(this.STORAGE_PREFIX + key);
-        // else
-          // return null;
-      // },
-      // //Remove a value from local storage given the `key`.
-      // remove : function(key) {
-        // if(localStorage)
-          // localStorage.removeItem(this.STORAGE_PREFIX + key);
-      // }
-      
-			//Since the underlying client side storage implementation may not be name-spaced, we'll prefix our saved keys with `STORAGE_PREFIX`.
-			STORAGE_PREFIX : 'stackmob.',
+      //Since the underlying client side storage implementation may not be name-spaced, we'll prefix our saved keys with `STORAGE_PREFIX`.
+      STORAGE_PREFIX : 'stackmob.',
 
-			//Use this to save things to local storage as a key/value pair.
-			persist : function(key, value) {
-				//If there's an HTML5 implementation of Local Storage available, then use it.  Otherwise, there's no fallback at this point in time.
-				if (Titanium.App.Properties)
-					Titanium.App.Properties.setString(this.STORAGE_PREFIX + key, value);
-			},
-
-			//Read a value from local storage given the `key`.
-			retrieve : function(key) {
-				if (Titanium.App.Properties)
-					return Titanium.App.Properties.getString(this.STORAGE_PREFIX + key);
-				else
-					null;
-			},
-
-			//Remove a value from local storage given the `key`.
-			remove : function(key) {
-				if (Titanium.App.Properties)
-					Titanium.App.Properties.removeProperty(this.STORAGE_PREFIX + key);
-			}      
+      //Use this to save things to local storage as a key/value pair.
+      persist : function(key, value) {
+        //If there's an HTML5 implementation of Local Storage available, then use it.  Otherwise, there's no fallback at this point in time.
+        if(localStorage)
+          localStorage.setItem(this.STORAGE_PREFIX + key, value);
+      },
+      //Read a value from local storage given the `key`.
+      retrieve : function(key) {
+        if(localStorage)
+          return localStorage.getItem(this.STORAGE_PREFIX + key);
+        else
+          return null;
+      },
+      //Remove a value from local storage given the `key`.
+      remove : function(key) {
+        if(localStorage)
+          localStorage.removeItem(this.STORAGE_PREFIX + key);
+      }
     },
 
     /**
@@ -595,7 +567,6 @@
     var base = createBaseString(ts, nonce, method, url, hostNoPort, port);
 
     var hash = CryptoJS.HmacSHA1(base, key);
-
     var mac = hash.toString(CryptoJS.enc.Base64);
 
     return 'MAC id="' + id + '",ts="' + ts + '",nonce="' + nonce + '",mac="' + mac + '"';
@@ -1024,8 +995,7 @@
       } else if(StackMob.isZepto()) {
         return StackMob['ajaxOptions']['zepto'](model, params, method, options);
       } else {
-        return StackMob['ajaxOptions']['TI'](model, params, method, options);
-        //return StackMob['ajaxOptions']['jquery'](model, params, method, options);
+        return StackMob['ajaxOptions']['jquery'](model, params, method, options);
       }
     },
     onsuccess : function(model, method, params, result, success, options) {
@@ -1919,227 +1889,129 @@
 }).call(this);
 
 (function() {
-	var root = this;
-	var $ = root.jQuery || root.Ext || root.Zepto || Titanium;
-	_.extend(StackMob, {
-		ajaxOptions : {
-			'TI' : function(model, params, method) {
-				params['beforeSend'] = function(xhr, settings) {
-					xhr.setRequestHeader("Accept", settings['accepts']);
-					if (!_.isEmpty(settings['headers'])) {
+  var root = this;
+  var $ = root.jQuery || root.Ext || root.Zepto;
+  _.extend(StackMob, {
+    ajaxOptions : {
+      'sencha' : function(model, params, method, options) {
+        var hash = {};
 
-						for (key in settings['headers']) {
-							xhr.setRequestHeader(key, settings['headers'][key]);
-						}
-					}
-				};
+        // Set up success callback
+        var success = params['success'];
+        var defaultSuccess = function(response, opt) {
 
-				var err = params['error'];
+          var result = response && response.responseText ? JSON.parse(response.responseText) : null;
+          if(params["stackmob_count"] === true)
+            result = response;
 
-				params['error'] = function(jqXHR, textStatus, errorThrown) {
+          StackMob.onsuccess(model, method, params, result, success, options);
 
-					var data;
+        };
+        params['success'] = defaultSuccess;
 
-					if (jqXHR && (jqXHR.responseText || jqXHR.text)) {
-						var result;
-						try {
-							result = JSON.parse(jqXHR.responseText || jqXHR.text);
-						} catch (err) {
-							result = {
-								error : 'Invalid JSON returned.'
-							};
-						}
-						data = result;
-					}
+        // Set up error callback
+        var error = params['error'];
 
-					(function(m, d) {
-						if (err)
-							err(d);
-					}).call(StackMob, model, data);
-				}
-				var success = params['success'];
+        // Build Sencha options
+        hash['url'] = params['url'];
+        hash['headers'] = params['headers'];
+        hash['params'] = params['data'];
+        hash['success'] = params['success'];
+        hash['disableCaching'] = false;
+        hash['method'] = params['type'];
 
-				var defaultSuccess = function(response) {
+        var defaultError = function(response, options) {
+          var responseText = response.responseText || response.text;
+          StackMob.onerror(response, responseText, $.Ajax.request, model, hash, error, options);
+        }
+        params['error'] = defaultError;
+        hash['failure'] = params['error'];
 
-					var result = response && response.responseText ? JSON.parse(response.responseText) : null;
+        return $.Ajax.request(hash);
+      },
 
-					if (_.isFunction(params['stackmob_on' + method]))
-						params['stackmob_on' + method](result);
+      'zepto' : function(model, params, method, options) {
 
-					if (result) {
+        // Set up success callback
+        var success = params['success'];
+        var defaultSuccess = function(response, result, xhr) {
+          var result = response ? JSON.parse(response) : null;
+          StackMob.onsuccess(model, method, params, result, success, options);
+        };
+        params['success'] = defaultSuccess;
 
-						!model.models && model.clear();
+        // Set up error callback
+        var error = params['error'];
+        var defaultError = function(xhr, errorType, err) {
+          var responseText = xhr.responseText || xhr.text;
+          StackMob.onerror(xhr, responseText, $.ajax, model, params, error, options);
+        }
+        params['error'] = defaultError;
 
-						if (StackMob.isOAuth2Mode() && (method === 'accessToken' || method === 'facebookAccessToken') && result['stackmob']) {
-							//If we have "stackmob" in the response, that means we're getting stackmob data back.
-							//pass the user back to the user's success callback
-							result = result['stackmob']['user'];
-							success(result);
-						} else {
-							if (params["stackmob_count"] === true) {
-								success(response);
-							} else if (!model.models && !model.set(result))
-								return false;
-							success(result);
-						}
-					} else
-						success();
+        // Build Zepto options
+        var hash = {};
+        hash['url'] = params['url'];
+        hash['headers'] = params['headers'];
+        hash['contentType'] = params['headers']['contentType'];
+        hash['type'] = params['type'];
+        hash['data'] = params['data'];
+        hash['success'] = defaultSuccess;
+        hash['error'] = defaultError;
 
-				};
+        return $.ajax(hash);
+      },
 
-				params['success'] = defaultSuccess;
+      'jquery' : function(model, params, method, options) {
 
-				var xhr = Ti.Network.createHTTPClient({
-					onload : function(e) {
-						params['success'](xhr);
-					},
-					onerror : function(e) {
-						params['error'](xhr)
-					},
-					timeout : 5e3
-				});
+        params['beforeSend'] = function(jqXHR, settings) {
+          jqXHR.setRequestHeader("Accept", settings['accepts']);
+          if(!_.isEmpty(settings['headers'])) {
 
-				// if logging in...
-				if (StackMob.isOAuth2Mode() && (method === 'accessToken' || method === 'facebookAccessToken')) {
-					xhr.open(params.type, params.url + "?" + params.data);
-					params['beforeSend'](xhr, params);
-					return xhr.send();
-				} else {
-					xhr.open(params.type, params.url);
-					params['beforeSend'](xhr, params);
-					// if not 'GET' then post body here!!
-					return xhr.send(params.type !== 'GET' ? params.data : null);
-				}
+            for(key in settings['headers']) {
+              jqXHR.setRequestHeader(key, settings['headers'][key]);
+            }
+          }
+        };
 
-			},
-		}
-	});
+        // Set up error callback
+        var error = params['error'];
+        params['error'] = function(jqXHR, textStatus, errorThrown) {
+          // Workaround for Android broswers not recognizing HTTP status code 206.
+          // Call the success method on HTTP Status 0 (the bug) and when a range was specified.
+          if (jqXHR.status == 0 && params['query'] && (typeof params['query']['range'] === 'object')){
+            this.success(jqXHR, textStatus, errorThrown);
+            return;
+          }
+          var responseText = jqXHR.responseText || jqXHR.text;
+          StackMob.onerror(jqXHR, responseText, $.ajax, model, params, error, options);
+        }
+
+        // Set up success callback
+        var success = params['success'];
+        var defaultSuccess = function(response, status, xhr) {
+          var result;
+
+          if(params["stackmob_count"] === true) {
+            result = xhr;
+          } else if(response && response.toJSON) {
+            result = response;
+          } else if(response && (response.responseText || response.text)) {
+            var json = JSON.parse(response.responseText || response.text);
+            result = json;
+          } else if(response) {
+            result = response;
+          }
+          StackMob.onsuccess(model, method, params, result, success, options);
+
+        };
+        params['success'] = defaultSuccess;
+
+        return $.ajax(params);
+      }
+
+    }
+  });
 }).call(this);
-
-// (function() {
-  // var root = this;
-  // var $ = root.jQuery || root.Ext || root.Zepto;
-  // _.extend(StackMob, {
-    // ajaxOptions : {
-      // 'sencha' : function(model, params, method, options) {
-        // var hash = {};
-// 
-        // // Set up success callback
-        // var success = params['success'];
-        // var defaultSuccess = function(response, opt) {
-// 
-          // var result = response && response.responseText ? JSON.parse(response.responseText) : null;
-          // if(params["stackmob_count"] === true)
-            // result = response;
-// 
-          // StackMob.onsuccess(model, method, params, result, success, options);
-// 
-        // };
-        // params['success'] = defaultSuccess;
-// 
-        // // Set up error callback
-        // var error = params['error'];
-// 
-        // // Build Sencha options
-        // hash['url'] = params['url'];
-        // hash['headers'] = params['headers'];
-        // hash['params'] = params['data'];
-        // hash['success'] = params['success'];
-        // hash['disableCaching'] = false;
-        // hash['method'] = params['type'];
-// 
-        // var defaultError = function(response, options) {
-          // var responseText = response.responseText || response.text;
-          // StackMob.onerror(response, responseText, $.Ajax.request, model, hash, error, options);
-        // }
-        // params['error'] = defaultError;
-        // hash['failure'] = params['error'];
-// 
-        // return $.Ajax.request(hash);
-      // },
-// 
-      // 'zepto' : function(model, params, method, options) {
-// 
-        // // Set up success callback
-        // var success = params['success'];
-        // var defaultSuccess = function(response, result, xhr) {
-          // var result = response ? JSON.parse(response) : null;
-          // StackMob.onsuccess(model, method, params, result, success, options);
-        // };
-        // params['success'] = defaultSuccess;
-// 
-        // // Set up error callback
-        // var error = params['error'];
-        // var defaultError = function(xhr, errorType, err) {
-          // var responseText = xhr.responseText || xhr.text;
-          // StackMob.onerror(xhr, responseText, $.ajax, model, params, error, options);
-        // }
-        // params['error'] = defaultError;
-// 
-        // // Build Zepto options
-        // var hash = {};
-        // hash['url'] = params['url'];
-        // hash['headers'] = params['headers'];
-        // hash['contentType'] = params['headers']['contentType'];
-        // hash['type'] = params['type'];
-        // hash['data'] = params['data'];
-        // hash['success'] = defaultSuccess;
-        // hash['error'] = defaultError;
-// 
-        // return $.ajax(hash);
-      // },
-// 
-      // 'jquery' : function(model, params, method, options) {
-// 
-        // params['beforeSend'] = function(jqXHR, settings) {
-          // jqXHR.setRequestHeader("Accept", settings['accepts']);
-          // if(!_.isEmpty(settings['headers'])) {
-// 
-            // for(key in settings['headers']) {
-              // jqXHR.setRequestHeader(key, settings['headers'][key]);
-            // }
-          // }
-        // };
-// 
-        // // Set up error callback
-        // var error = params['error'];
-        // params['error'] = function(jqXHR, textStatus, errorThrown) {
-          // // Workaround for Android broswers not recognizing HTTP status code 206.
-          // // Call the success method on HTTP Status 0 (the bug) and when a range was specified.
-          // if (jqXHR.status == 0 && params['query'] && (typeof params['query']['range'] === 'object')){
-            // this.success(jqXHR, textStatus, errorThrown);
-            // return;
-          // }
-          // var responseText = jqXHR.responseText || jqXHR.text;
-          // StackMob.onerror(jqXHR, responseText, $.ajax, model, params, error, options);
-        // }
-// 
-        // // Set up success callback
-        // var success = params['success'];
-        // var defaultSuccess = function(response, status, xhr) {
-          // var result;
-// 
-          // if(params["stackmob_count"] === true) {
-            // result = xhr;
-          // } else if(response && response.toJSON) {
-            // result = response;
-          // } else if(response && (response.responseText || response.text)) {
-            // var json = JSON.parse(response.responseText || response.text);
-            // result = json;
-          // } else if(response) {
-            // result = response;
-          // }
-          // StackMob.onsuccess(model, method, params, result, success, options);
-// 
-        // };
-        // params['success'] = defaultSuccess;
-// 
-        // return $.ajax(params);
-      // }
-// 
-    // }
-  // });
-// }).call(this);
 
 /*!
  CryptoJS v3.0.2
