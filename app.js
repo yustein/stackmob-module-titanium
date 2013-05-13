@@ -1,7 +1,12 @@
+window = new Object();
+window.location = new Object();
+window.location.hostname = '';
+window.location.protocol = 'http';
+
 _ = require("underscore");
 var Backbone = require('backbone');
-//Ti.include('2.5.3-crypto-sha1-hmac.js');
 require('stackmob-0.9.1');
+require('stackmob-titanium');
 
 
 StackMob.init({
@@ -15,7 +20,6 @@ Ti.API.info(' data ' + JSON.stringify(StackMob));
 
 var BlogEntry = StackMob.Model.extend({ schemaName: 'blogentry' });
 var entry = new BlogEntry({ message: 'hello world!999' });
-entry.create();
 
 entry.create({
     success: function(model) {
