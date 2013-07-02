@@ -19,7 +19,8 @@ As you can see in the example,
 These 4 lines below tell your app.js to load these file
 (backbone.js used is version 1.0.0 underscore.js used is 1.4.4)
 
-```_ = require("underscore");
+```
+_ = require("underscore");
 var Backbone = require('backbone');
 require('stackmob-js-0.9.2');
 require('stackmob-titanium');
@@ -27,7 +28,8 @@ require('stackmob-titanium');
 
 after this you initialize the module with:
 
-```StackMob.init({
+```
+StackMob.init({
 	appName : 'stackmob_test',
 	publicKey : 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
 	apiVersion : 0
@@ -40,7 +42,8 @@ publicKey is the public key of the app that you mentioned 1 step earlier
 and all the code below simply writes a blog entry, you can go and check your
 StackMob dashboard to see the data entered with your app
 
-```Ti.API.info(' data ' + JSON.stringify(StackMob));
+```
+Ti.API.info(' data ' + JSON.stringify(StackMob));
 
 
 var BlogEntry = StackMob.Model.extend({ schemaName: 'blogentry' });
