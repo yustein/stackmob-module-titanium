@@ -5,8 +5,12 @@ window.location.protocol = 'http';
 
 _ = require("underscore");
 var Backbone = require('backbone');
+<<<<<<< HEAD
 require('stackmob-0.9.1');
 require('stackmob-titanium');
+=======
+require('stackmob-js-0.9.2');
+>>>>>>> Update after StackMob JS version 0.9.2
 
 
 StackMob.init({

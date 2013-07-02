@@ -1,5 +1,5 @@
 /*
- StackMob JS SDK Version 0.9.1
+ StackMob JS SDK Version 0.9.2
  Copyright 2012-2013 StackMob Inc.
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,13 +18,15 @@
 (function() {
   var root = this;
 
+  //in case the JS SDK is being included in environments without window
+  var thisWindow = typeof window !== "undefined" ? window : { location: { hostname: 'api.stackmob.com', port: '443', protocol: 'https:' }};
+  
   /**
    * The StackMob object is the core of the JS SDK.  It holds static variables, methods, and configuration information.
    *
    * It is the only variable introduced globally.
    */
-
-  window.StackMob = root.StackMob = {
+  thisWindow.StackMob = root.StackMob = {
 
     //Default API Version.  Set to 0 for your Development API.  Production APIs are 1, 2, 3+
     DEFAULT_API_VERSION : 0,
@@ -77,10 +79,19 @@
     apiVersion : 0,
 
     // The current version of the JS SDK.
-    sdkVersion : "0.9.1",
+    sdkVersion : "0.9.2",
 
     // This holds the application public key when the JS SDK is initialized to connect to StackMob's services via OAuth 2.0.
     publicKey : null,
+    
+    
+    /**
+     * Methods to help with api signing
+     */
+    getProtocol: function() { return thisWindow.location.protocol; },
+    getHostname: function() { return thisWindow.location.hostname; },
+    getPort:function () { return thisWindow.location.port; },
+  
 
     /**
      * The Storage object lives within the StackMob object and provides an abstraction layer for client storage.  It's intended for internal use within the JS SDK.  The JS SDK is currently using HTML5's Local Storage feature to persist key/value items.
@@ -123,7 +134,7 @@
         } else {
           if (typeof methods['no'] === "function") methods['no'](result);
         }
-      }
+      };
 
       // Set default error method if one is not provided
       if ( !options['error'] && (typeof methods['error'] === "function") ) {
@@ -138,7 +149,7 @@
      **/
     _containsCallbacks : function(options, callbacks){
       return ( typeof options === "object" ) &&
-              _.some(callbacks, function(callback){ return typeof options[callback] === "function"; })
+              _.some(callbacks, function(callback){ return typeof options[callback] === "function"; });
     },
 
     /**
@@ -223,7 +234,7 @@
     getBaseURL : function() {
       if( StackMob['useRelativePathForAjax'] ){
         // Build "relative path" (also used for OAuth signing)
-        return StackMob.apiDomain ? StackMob.apiDomain : (window.location.hostname + (window.location.port ? ':' + window.location.port : '')) + '/';
+        return StackMob.apiDomain ? StackMob.apiDomain : (this.getHostname() + (this.getPort() ? ':' + this.getPort() : '')) + '/';
       } else {
         // Use absolute path and operate through CORS
         return StackMob.apiDomain ? StackMob.apiDomain : (StackMob['API_SERVER'] + '/');
@@ -316,11 +327,11 @@
         options['success'] = function(input){
           var creds = StackMob.getOAuthCredentials();
 
-          var loginField =  (creds['oauth2.userSchemaInfo'] && creds['oauth2.userSchemaInfo']['loginField']) ? 
+          var loginField =  (creds['oauth2.userSchemaInfo'] && creds['oauth2.userSchemaInfo']['loginField']) ?
             creds['oauth2.userSchemaInfo']['loginField'] : this['loginField'];
           originalSuccess( input[loginField]);
-        }
-        this.initiateRefreshSessionCall(options)
+        };
+        this.initiateRefreshSessionCall(options);
       } else {
         //If expired and sync
         return false;
@@ -341,14 +352,14 @@
     },
     hasRefreshToken : function() {
       var creds = this.getOAuthCredentials();
-      return creds && ( typeof creds[StackMob.REFRESH_TOKEN_KEY] !== 'undefined') && creds[StackMob.REFRESH_TOKEN_KEY] != null;
+      return creds && ( typeof creds[StackMob.REFRESH_TOKEN_KEY] !== 'undefined') && creds[StackMob.REFRESH_TOKEN_KEY] !== null;
     },
     getRefreshToken : function() {
       var creds = this.getOAuthCredentials();
       return creds[StackMob.REFRESH_TOKEN_KEY];
     },
     hasExpiredOAuth : function() {
-      return this.isOAuth2Mode() && (this.getOAuthExpireTime() == null) || (this.getOAuthExpireTime() <= (new Date()).getTime())
+      return this.isOAuth2Mode() && (this.getOAuthExpireTime() === null) || (this.getOAuthExpireTime() <= (new Date()).getTime());
     },
 
     clearOAuthCredentials : function() {
@@ -392,7 +403,7 @@
     //Returns the date (in milliseconds) for when the current user's OAuth 2.0 credentials expire.
     getOAuthExpireTime : function() {
       var expires = this.Storage.retrieve('oauth2.expires');
-      return expires ? parseInt(expires) : null;
+      return expires ? parseInt(expires, 10) : null;
     },
     //This is an internally used map that works with Backbone.js.  It maps methods to HTTP Verbs used when making ajax calls.
     METHOD_MAP : {
@@ -477,8 +488,8 @@
        */
       var apiDomain = options['apiDomain'];
       if (typeof apiDomain === "string"){
-        if (apiDomain.indexOf('http') == 0){
-          throw new Error("Error: apiDomain should not specify url scheme (http/https). For example, specify api.stackmob.com instead of http://api.stackmob.com. URL Scheme is determined by the 'secure' init variable.")
+        if (apiDomain.indexOf('http') === 0){
+          throw new Error("Error: apiDomain should not specify url scheme (http/https). For example, specify api.stackmob.com instead of http://api.stackmob.com. URL Scheme is determined by the 'secure' init variable.");
         } else {
           if (apiDomain.indexOf('/') == apiDomain.length - 1){
             this.apiDomain = apiDomain;
@@ -496,7 +507,7 @@
        * HTML5 apps hosted on stackmobapp.com will be set to `true` and use a relative path
        * automatically.
        */
-      var isSMHosted = (window.location.hostname.indexOf('.stackmobapp.com') > 0);
+      var isSMHosted = (this.getHostname().indexOf('.stackmobapp.com') > 0);
       this.useRelativePathForAjax = (typeof options['useRelativePathForAjax'] === "boolean") ? options['useRelativePathForAjax'] : isSMHosted;
 
       /*
@@ -510,9 +521,9 @@
        */
       if (options['secure']) {
         this.secure = options['secure'];
-      } else if (window.location.protocol.indexOf("https:") == 0) {
+      } else if (this.getProtocol().indexOf("https:") == 0) {
         this.secure = this.SECURE_ALWAYS;
-      } else if (window.location.protocol.indexOf("http:") == 0) {
+      } else if (this.getProtocol().indexOf("http:") == 0) {
         this.secure = this.SECURE_NEVER;
       } else {
         this.secure = this.SECURE_MIXED;
@@ -607,7 +618,6 @@
         case StackMob.SECURE_NEVER:
           scheme = HTTP;
           break;
-        case StackMob.SECURE_MIXED:
         default:
           scheme = StackMob._isSecureMethod(method, params) ? HTTPS : HTTP;
           break;
@@ -626,9 +636,9 @@
     //Add API Version Number to Request Headers
 
     //let users overwrite this if they know what they're doing
-    params['headers'] = _.extend({
+    params['headers'] = _.extend(params['headers'], {
       "Accept" : 'application/vnd.stackmob+json; version=' + StackMob['apiVersion']
-    }, params['headers']);
+    });
 
     //dont' let users overwrite the stackmob headers though..
     _.extend(params['headers'], {
@@ -654,7 +664,7 @@
     }
 
     if(!isNaN(options[StackMob.CASCADE_DELETE])) {
-      params['headers']['X-StackMob-CascadeDelete'] = options[StackMob.CASCADE_DELETE] == true;
+      params['headers']['X-StackMob-CascadeDelete'] = options[StackMob.CASCADE_DELETE] === true;
     }
 
     // If this is an advanced query, check headers
@@ -734,11 +744,13 @@
         return v && !_.isUndefined(StackMob.METHOD_MAP[verb.toLowerCase()]);
       }
 
+      // Verb is an optional parameter, so `options` may be passed into
+      // this slot instead of the verb string.
       if(_.isObject(verb)) {
+        // If this is an object, assume it is the `options` param instead
         options = verb || {};
-        var verb = options['httpVerb'];
-        verb = isValidVerb(verb) ? verb : 'GET'
-        options['httpVerb'] = verb;
+        var theVerb = options['httpVerb'];
+        options['httpVerb'] = isValidVerb(theVerb) ? theVerb : 'GET';
       } else {
         options = options || {};
         if(_.isString(verb) && isValidVerb(verb))
@@ -805,7 +817,7 @@
       }
 
       //Override to allow 'Model#save' to force create even if the id (primary key) is set in the model and hence !isNew() in BackBone
-      var forceCreateRequest = options[StackMob.FORCE_CREATE_REQUEST] === true
+      var forceCreateRequest = options[StackMob.FORCE_CREATE_REQUEST] === true;
       if(forceCreateRequest) {
         method = 'create';
       }
@@ -892,7 +904,7 @@
               }
 
               _.each(model.getBinaryFields(), function(field) {
-                if (json[field] && json[field].indexOf('http') == 0) {
+                if (json[field] && json[field].indexOf('http') === 0) {
                   delete json[field];
                 }
               });
@@ -922,11 +934,10 @@
 
       //Determine what kind of call to make: GET, POST, PUT, DELETE
       var type = options['httpVerb'] || StackMob.METHOD_MAP[method] || 'GET';
-
       //Prepare query configuration
+
       var params = _.extend({
-        type : type,
-        dataType : 'json'
+        type : type
       }, options);
 
       params['data'] = params['data'] || {};
@@ -1055,7 +1066,7 @@
       var result;
       try {
         result = JSON.parse(responseText);
-      } catch (err) {
+      } catch (e) {
         result = {
           error : 'Invalid JSON returned.'
         };
@@ -1064,7 +1075,7 @@
       if(statusCode == 503) {
         var wait = response.getResponseHeader('retry-after');
         try {
-          wait = parseInt(responseHeaderValue) * 1000;
+          wait = parseInt(responseHeaderValue, 10) * 1000;
         } catch(e) {
           wait = StackMob.RETRY_WAIT;
         }
@@ -1088,7 +1099,7 @@
         if(_.isFunction(params['oncomplete']))
           params['oncomplete'](result);
         if(err)
-          err(result)
+          err(result);
       }
     },
     isAccessTokenMethod : function(method) {
@@ -1108,7 +1119,7 @@
                             'unlinkUserFromGigya'];
       if (StackMob.isAccessTokenMethod(method)) {
         return true;
-      } else if (params['isUserCreate'] == true) {
+      } else if (params['isUserCreate'] === true) {
         return true;
       } else {
         return _.include(secureMethods, method);
@@ -1150,7 +1161,7 @@
         this.idAttribute = this.getPrimaryKeyField();
       },
       parse : function(data, xhr) {
-        if(!data || (data && (!data['text'] || data['text'] == '')))
+        if(!data || (data && (!data['text'] || data['text'] === '')))
           return data;
 
         var attrs = JSON.parse(data['text']);
@@ -1170,7 +1181,7 @@
         options = options || {};
         _.extend(options, {
           query : stackMobQuery
-        })
+        });
         this.fetch(options);
       },
       fetch : function(options) {
@@ -1278,7 +1289,7 @@
         return base;
       },
       parse : function(data, xhr) {
-        if(!data || (data && (!data['text'] || data['text'] == '')))
+        if(!data || (data && (!data['text'] || data['text'] === '')))
           return data;
 
         var attrs = JSON.parse(data['text']);
@@ -1291,7 +1302,7 @@
         options = options || {};
         _.extend(options, {
           query : stackMobQuery
-        })
+        });
         this.fetch(options);
       },
       destroyAll : function(stackMobQuery, options) {
@@ -1322,27 +1333,28 @@
 
       createAll : function(options) {
         options = options || {};
-        return (this.sync || Backbone.sync).call(this, 'create', this, options); 
+        return (this.sync || Backbone.sync).call(this, 'create', this, options);
       },
 
       count : function(stackMobQuery, options) {
-        stackMobQuery = stackMobQuery || new StackMob.Collection.Query();
+        stackMobQuery = stackMobQuery.clone() || new StackMob.Collection.Query();
         options = options || {};
         options.stackmob_count = true;
         var success = options['success'];
 
         var successFunc = function(xhr) {
+          _xhr = xhr;
 
           if(xhr && xhr.getAllResponseHeaders) {
             var responseHeader = xhr.getResponseHeader('Content-Range');
             var count = 0;
             if(responseHeader) {
-              count = responseHeader.substring(responseHeader.indexOf('/') + 1, responseHeader.length)
+              count = responseHeader.substring(responseHeader.indexOf('/') + 1, responseHeader.length);
             }
 
             if(count === 0) {
               try {
-                count = JSON.parse(xhr.responseText).length
+                count = JSON.parse(xhr.responseText).length;
               } catch(err) {
               }
             }
@@ -1353,14 +1365,14 @@
           } else
             success(xhr);
           //not actually xhr but actual value
-        }
+        };
 
         options.success = successFunc;
 
         //check to see stackMobQuery is actually a StackMob.Collection.Query object before passing along
         if(stackMobQuery.setRange)
           options.query = (stackMobQuery).setRange(0, 0);
-        return (this.sync || Backbone.sync).call(this, 'query', this, options)
+        return (this.sync || Backbone.sync).call(this, 'query', this, options);
 
       }
     });
@@ -1569,32 +1581,32 @@
     StackMob.GeoPoint = function(lat, lon) {
       if(_.isNumber(lat)) {
         // Validate
-        if ( lat < -90 || lat > 90 ) { StackMob.throwError("Latitude value must be between -90 and 90 inclusive.") };
-        if ( lon < -180 || lon > 180 ) { StackMob.throwError("Longitude value must be between -180 and 180 inclusive.") };
+        if ( lat < -90 || lat > 90 ) { StackMob.throwError("Latitude value must be between -90 and 90 inclusive."); }
+        if ( lon < -180 || lon > 180 ) { StackMob.throwError("Longitude value must be between -180 and 180 inclusive."); }
 
         this.lat = lat;
         this.lon = lon;
       } else {
         // Validate
-        if ( lat['lat'] < -90 || lat['lat'] > 90 ) { StackMob.throwError("Latitude value must be between -90 and 90 inclusive.") };
-        if ( lat['lon'] < -180 || lat['lon'] > 180 ) { StackMob.throwError("Longitude value must be between -180 and 180 inclusive.") };
+        if ( lat['lat'] < -90 || lat['lat'] > 90 ) { StackMob.throwError("Latitude value must be between -90 and 90 inclusive."); }
+        if ( lat['lon'] < -180 || lat['lon'] > 180 ) { StackMob.throwError("Longitude value must be between -180 and 180 inclusive."); }
 
         this.lat = lat['lat'];
         this.lon = lat['lon'];
       }
-    }
+    };
 
     StackMob.GeoPoint.prototype.toJSON = function() {
       return {
         lat : this.lat,
         lon : this.lon
       };
-    }
+    };
 
     StackMob.Model.Query = function() {
       this.selectFields = [];
       this.params = {};
-    }
+    };
 
     _.extend(StackMob.Model.Query.prototype, {
       select : function(key) {
@@ -1605,17 +1617,17 @@
         this.params['_expand'] = depth;
         return this;
       }
-    })
+    });
 
     StackMob.Collection.Query = function() {
       this.params = {};
       this.selectFields = [];
       this.orderBy = [];
       this.range = null;
-    }
+    };
 
-    StackMob.Collection.Query.prototype = new StackMob.Model.Query;
-    StackMob.Collection.Query.prototype.constructor = StackMob.Collection.Query;
+    StackMob.Collection.Query.prototype = new StackMob.Model.Query();
+    StackMob.Collection.Query.prototype.constructor = StackMob.Collection.Query();
 
     function andString(count){
       return "[and" + count + "].";
@@ -1677,11 +1689,11 @@
           parsedAndString = "";
           if (keys.length > 1) {
             andCounter = newQuery['andCount']++;
-            parsedAndString = andString(andCounter)
+            parsedAndString = andString(andCounter);
           }
 
           // Copy A's params to newQuery
-          for (key in a['params']){
+          for (var key in a['params']){
             var newKey = orString(newQuery['orId']) + parsedAndString + key;
             newQuery['params'][newKey] = a['params'][key];
           }
@@ -1691,7 +1703,7 @@
           parsedAndString = "";
           if (keys.length > 1) {
             andCounter = newQuery['andCount']++;
-            parsedAndString = andString(andCounter)
+            parsedAndString = andString(andCounter);
           }
 
           // Copy B's params to newQuery
@@ -1899,8 +1911,16 @@
         // Set up success callback
         var success = params['success'];
         var defaultSuccess = function(response, opt) {
+          var result = null;
 
-          var result = response && response.responseText ? JSON.parse(response.responseText) : null;
+          if(response && response.responseText) {
+            try {
+              result = JSON.parse(response.responseText);
+            } catch(e) {
+              result = response.responseText;
+            }
+          }
+
           if(params["stackmob_count"] === true)
             result = response;
 
@@ -1923,7 +1943,7 @@
         var defaultError = function(response, options) {
           var responseText = response.responseText || response.text;
           StackMob.onerror(response, responseText, $.Ajax.request, model, hash, error, options);
-        }
+        };
         params['error'] = defaultError;
         hash['failure'] = params['error'];
 
@@ -1935,7 +1955,12 @@
         // Set up success callback
         var success = params['success'];
         var defaultSuccess = function(response, result, xhr) {
-          var result = response ? JSON.parse(response) : null;
+          var result = response;
+
+          try {
+            result = JSON.parse(response)
+          } catch(e) {}
+
           StackMob.onsuccess(model, method, params, result, success, options);
         };
         params['success'] = defaultSuccess;
@@ -1945,7 +1970,7 @@
         var defaultError = function(xhr, errorType, err) {
           var responseText = xhr.responseText || xhr.text;
           StackMob.onerror(xhr, responseText, $.ajax, model, params, error, options);
-        }
+        };
         params['error'] = defaultError;
 
         // Build Zepto options
@@ -1963,11 +1988,23 @@
 
       'jquery' : function(model, params, method, options) {
 
+        // Revert jQuery 1.9.1 update to treat
+        // empty HTTP responses as errors.
+        params['converters'] = {
+          'text json': function(json_string) {
+            if ( typeof json_string != 'string' || !$.trim(json_string).length ) {
+              return {};
+            } else {
+              return jQuery.parseJSON( json_string );
+            }
+          }
+        };
+
         params['beforeSend'] = function(jqXHR, settings) {
           jqXHR.setRequestHeader("Accept", settings['accepts']);
           if(!_.isEmpty(settings['headers'])) {
 
-            for(key in settings['headers']) {
+            for(var key in settings['headers']) {
               jqXHR.setRequestHeader(key, settings['headers'][key]);
             }
           }
@@ -1978,13 +2015,13 @@
         params['error'] = function(jqXHR, textStatus, errorThrown) {
           // Workaround for Android broswers not recognizing HTTP status code 206.
           // Call the success method on HTTP Status 0 (the bug) and when a range was specified.
-          if (jqXHR.status == 0 && params['query'] && (typeof params['query']['range'] === 'object')){
+          if (jqXHR.status === 0 && params['query'] && (typeof params['query']['range'] === 'object')){
             this.success(jqXHR, textStatus, errorThrown);
             return;
           }
           var responseText = jqXHR.responseText || jqXHR.text;
           StackMob.onerror(jqXHR, responseText, $.ajax, model, params, error, options);
-        }
+        };
 
         // Set up success callback
         var success = params['success'];
@@ -1996,8 +2033,13 @@
           } else if(response && response.toJSON) {
             result = response;
           } else if(response && (response.responseText || response.text)) {
-            var json = JSON.parse(response.responseText || response.text);
-            result = json;
+            var result;
+
+            try {
+              result = JSON.parse(response.responseText || response.text);
+            } catch (e) {
+              result = response.responseText || response.text;
+            }
           } else if(response) {
             result = response;
           }
