@@ -10,7 +10,7 @@ _.extend(StackMob, {
 			}
 		};
 
-		var err = params['error'];
+		var errorFn = params['error'];
 
 		params['error'] = function(jqXHR, textStatus, errorThrown) {
 
@@ -29,8 +29,8 @@ _.extend(StackMob, {
 			}
 
 			(function(m, d) {
-				if (err)
-					err(d);
+				if (errorFn)
+					errorFn(d);
 			}).call(StackMob, model, data);
 		}
 		var success = params['success'];
